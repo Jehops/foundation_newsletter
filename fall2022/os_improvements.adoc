@@ -3,40 +3,9 @@
 During the third quarter of 2022, 300 src, 36 ports, and 13 doc tree commits
 were made that identified The FreeBSD Foundation as a sponsor.  It's challenging
 to concisely summarize all this work.  It varies from complex new features to
-various bug fixes spanning the src tree.  Here is a small sample to give a
-flavor.
-
-- 240afd8 makefs: Add ZFS support
-
-  This allows one to take a staged directory tree and create a file consisting
-  of a ZFS pool with one or more datasets that contain the contents of the
-  directory tree.  This is useful for creating virtual machine images without
-  using the kernel to create a pool; "zpool create" requires root privileges and
-  currently is not permitted in jails.  makefs -t zfs also provides reproducible
-  images by using a fixed seed for pseudo-random number generation, used for
-  generating GUIDs and hash salts.  makefs -t zfs requires relatively little by
-  way of machine resources.
-
--  36f1526 Add experimental 16k page support on arm64
-
-   Add initial 16k page support on arm64. It is considered experimental, with no
-   guarantee of compatibility with userspace or kernel modules built with the
-   current 4k page size. Testing has shown good results in kernel workloads that
-   allocate and free large amounts of memory as only a quarter of the number of
-   calls into the VM subsystem are needed in the best case.
-
-- 1424f65 vm_pager: Remove the default pager
-
-  It's unused now.  Keep the OBJ_DEFAULT identifier, but make it an alias of
-  OBJT_SWAP for the benefit of out-of-tree code.
-
-- a889a65 eventtimer: Fix several races in the timer reload code
-
-  In handleevents(), lock the timer state before fetching the time for the next
-  event.  A concurrent callout_cc_add() call might be changing the next event
-  time, and the race can cause handleevents() to program an out-of-date time,
-  causing the callout to run later (by an unbounded period, up to the idle
-  hardclock period of 1s) than requested.
+various bug fixes spanning the src tree.  A few highlights include adding ZFS
+support to makefs, adding experimental 16k page support on arm64, removing the
+default pager, and fixing race conditions in the event timer.
 
 === Sponsored Work
 
