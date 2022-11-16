@@ -1,0 +1,201 @@
+== OS Improvements
+
+During the third quarter of 2022, 300 src, 36 ports, and 13 doc tree commits
+were made that identified The FreeBSD Foundation as a sponsor.  It's challenging
+to concisely summarize all this work.  It varies from complex new features to
+various bug fixes spanning the src tree.  Here is a small sample to give a
+flavor.
+
+- 240afd8 makefs: Add ZFS support
+
+  This allows one to take a staged directory tree and create a file consisting
+  of a ZFS pool with one or more datasets that contain the contents of the
+  directory tree.  This is useful for creating virtual machine images without
+  using the kernel to create a pool; "zpool create" requires root privileges and
+  currently is not permitted in jails.  makefs -t zfs also provides reproducible
+  images by using a fixed seed for pseudo-random number generation, used for
+  generating GUIDs and hash salts.  makefs -t zfs requires relatively little by
+  way of machine resources.
+
+-  36f1526 Add experimental 16k page support on arm64
+
+   Add initial 16k page support on arm64. It is considered experimental, with no
+   guarantee of compatibility with userspace or kernel modules built with the
+   current 4k page size. Testing has shown good results in kernel workloads that
+   allocate and free large amounts of memory as only a quarter of the number of
+   calls into the VM subsystem are needed in the best case.
+
+- 1424f65 vm_pager: Remove the default pager
+
+  It's unused now.  Keep the OBJ_DEFAULT identifier, but make it an alias of
+  OBJT_SWAP for the benefit of out-of-tree code.
+
+- a889a65 eventtimer: Fix several races in the timer reload code
+
+  In handleevents(), lock the timer state before fetching the time for the next
+  event.  A concurrent callout_cc_add() call might be changing the next event
+  time, and the race can cause handleevents() to program an out-of-date time,
+  causing the callout to run later (by an unbounded period, up to the idle
+  hardclock period of 1s) than requested.
+
+=== Sponsored Work
+
+The FreeBSD also contracts companies and individuals to work on projects that
+benefit FreeBSD.  Here is a summary of the projects that are in progress.
+
+==== FreeBSD as a Tier I cloud-init Platform
+
+cloud-init is the standard way of provisioning servers in the cloud.
+Unfortunately, cloud-init support for operating systems other than GNU/Linux is
+rather poor, and the lack of cloud-init support on FreeBSD is a hindrance to
+cloud providers who want to offer FreeBSD as a Tier 1 platform.  To remedy the
+situation, this project aims to bring FreeBSD cloud-init support on par with
+GNU/Linux support.  The broader plan is to lift support across all BSDs.
+
+The project deliverables include completing an extraction of certain networking
+classes, implementing man:ifconfig[8] and man:login.conf[5] parsers,
+implementing IPv6 configuration, creating man:devd.conf[5] rules for Azure, and
+link:{handbook}[FreeBSD Handbook] documentation about productionizing FreeBSD.
+
+On the way there, any BSD-related bugs found in modules and documentation will
+also be fixed.
+
+People interested in helping with the project can help with testing new features
+and fixes through package:net/cloud-init-devel[], which will be updated on a
+weekly basis.
+
+==== Intel wireless towards 11ac
+
+The ongoing project aims to support the latest Intel wireless chipsets on
+FreeBSD using LinuxKPI compat code backed by native net80211 and kernel code.
+In addition, work is on the way to support 11n and 11ac standards in the
+LinuxKPI 802.11 compat code and fill gaps for mostly 11ac in the native net80211
+wireless stack.
+
+For the Intel iwlwifi wireless driver there were no major updates in the last
+months.  We updated the firmware to the latest publicly available version and
+fixed some of the most visible bugs.  Work is also on the way to support the D3
+power saving code.
+
+LinuxKPI compat code also got some improvements and fixes which at times were
+only observable on certain generations of iwlwifi chipsets.
+
+Changes in net80211 and LinuxKPI compat code for 11n and 11ac have little public
+visibility so far in order to not break basic support.  Updates to constants
+based on newer 802.11 standards and other changes without user-visible effect
+were merged, and functional changes will follow in the coming months, initially
+hidden behind compile-time or runtime options.
+
+Improvements and updates were largely merged back to stable/13 for the benefit
+of the users tracking this branch and to help with more testing.
+
+For the latest state of the development, please follow the freebsd-wireless
+mailing list and check the wiki pages.
+
+==== LLDB multiprocess debugging support
+
+According to the upstream description, "LLDB is a next generation,
+high-performance debugger. It is built as a set of reusable components which
+highly leverage existing libraries in the larger LLVM Project, such as the Clang
+expression parser and LLVM disassembler."
+
+FreeBSD includes LLDB in the base system.  The previous Foundation-sponsored
+projects improved LLDB, to make it a credible debugger for the base system,
+although it still has a few limitations compared to the contemporary versions of
+GNU GDB.  This project started in April 2022.  It aims to implement full support
+for debugging multiple processes simultaneously.
+
+At the start of the project, LLDB featured very limited support for multiprocess
+debugging.  Currently, the server is already able to monitor multiple processes
+using the multiprocess extension to the GDB Remote Serial Protocol.  The work on
+implementing the client-side counterpart for this protocol is ongoing.
+
+Once the project is finished, LLDB will be able to trace an arbitrary number of
+forked processes simultaneously (equivalent to GDB's `detach-on-fork off`).
+
+==== OpenStack on FreeBSD
+
+OpenStack is an open-source cloud operating system for different types of
+resources like virtual and bare-metal machines.  Users can spawn FreeBSD
+instances on the open cloud platform, but it is not currently possible to run
+OpenStack control plane on FreeBSD hosts.  The goal of this project is to port
+key OpenStack components so that FreeBSD can function as an OpenStack host.
+
+Academic and industrial research groups have been evaluating CHERI-enabled
+Morello boards since mid-2022.  A resource orchestration platform like OpenStack
+can improve the speed and cost of provisioning, managing, and recycling those
+boards.
+
+Starting in January 2022, Chih-Hsin Chang has been working to port several
+OpenStack components to run on FreeBSD, including:
+
+* Keystone (identity service)
+* Glance (image service)
+* Placement (resource tracking and inventory service)
+* Neutron (networking service)
+* Nova (compute service)
+
+Some of the items are still under heavy development.  For instance, due to the
+design of Neutron, the DHCP servers are placed inside Linux network namespaces.
+It is necessary to find an alternative, e.g. `vnet`, on FreeBSD and adapt it.
+Most of the time the porting strategy is to make as small of an impact as
+possible by working around obstacles.  But something like `oslo.privsep`
+deserves a true porting.  `oslo.privsep` is rooted in Linux capabilities to do
+the privilege separation work.  Right now we just bypassed any Linux
+capabilities-related operation inside `oslo.privsep`.  So there is plenty of
+hackish spots in the source code and configurations currently.  All of these
+along with the building and installation steps will be collected in the
+https://github.com/openstack-on-freebsd[project repositories].
+
+==== Snapshots on Filesystems Using Journaled Soft Updates
+
+This project will make UFS/FFS filesystem snapshots available when running with
+journaled soft updates.
+
+The UFS/FFS filesystem has the ability to take snapshots.  Because the taking of
+snapshots was added after soft updates were written they were fully integrated
+with soft updates.  When journaled soft updates were added in 2010, they were
+never integrated with snapshots.  So snapshots cannot be used on filesystems
+running with journaled soft updates.
+
+Snapshots became less important with the support for ZFS on FreeBSD since ZFS
+can take snapshots quickly and easily.  However there remain two instances where
+UFS snapshots are still important.  The first is that they allow reliable dumps
+of live filesystems which avoids possibly hours of down time.  The second is
+that they allow the running of background fsck.  Similar to the need for scrub
+in ZFS, fsck needs to be run periodically to find undetected disk failures.
+Snapshots allow fsck to be run on live filesystems rather than needing to
+schedule down time to run it.
+
+This project has two milestones:
+
+1. enable snapshots when running with journaled soft updates and ensure that
+they can be used for doing background dumps on a live filesystem.  This
+milestone was completed on November 12.
+
+2. extend fsck_ffs to be able to do a background check using a snapshot on a
+filesystem running with journaled soft updates.  This milestone is expected by
+Q3 of 2023.
+
+
+==== Bhyve Issue Support
+
+The Foundation contracted John Baldwin to dedicate time to Bhyve as issues
+arise, especially security issues.  Here is a summary of his 2022q3 work on that
+contract.
+
+- bb31aee bhyve virtio-scsi: Avoid out of bounds accesses to guest requests.
+- 62806a7 bhyve virtio-scsi: Tidy warning and debug prints.
+- 7afe342 bhyve e1000: Sanitize transmit ring indices.
+- c94f30e bhyve: Validate host PAs used to map passthrough BARs.
+- 16bedf5 pci: Add helper routines to iterate over a device's BARs.
+- baf753c bhyve: Support other schemes for naming pass-through devices.
+- fa46f37 bhyve e1000: Skip packets with a small header.
+- e7439f6 bhyve xhci: Cache the value of MaxPStreams when initializing an endpoint.
+
+==== RISC-V Improvements
+
+At the end of the quarter, the Foundation contracted Mitchell Horne to add and
+improve support for RISC-V hardware.  Mitchell will also perform general
+maintenance such as fixing bugs, handling reports, providing review for new code
+changes, and improving source code legibility and documentation.
